@@ -55,7 +55,7 @@ class Transcoder:
     MIME_TYPE = 'text/plain'
 
     def __init__(self, mime_type=None):
-        self.mime_type = mime_type
+        self.mime_type = mime_type or self.MIME_TYPE
 
     def to_bytes(self, value, encoding=None):
         """Transform an object into :class:`bytes`.
@@ -63,7 +63,7 @@ class Transcoder:
         :param object value: object to encode
         :param str encoding: character set used to encode the bytes
             returned from the ``dumps`` function.  This defaults to
-            :attr:`default_encoding`
+            :attr:`encoding`
         :returns: :class:`tuple` of the selected content
             type and the :class:`bytes` representation of
             `inst_data`
@@ -105,9 +105,6 @@ class Binary(Transcoder):
     """
     MIME_TYPE = 'application/octet-stream'
 
-    def __init__(self, mime_type=MIME_TYPE):
-        super(Binary, self).__init__(mime_type)
-
 
 class Text(Transcoder):
     """Transcodes between textual and object representations.
@@ -122,18 +119,17 @@ class Text(Transcoder):
         into a :class:`str`
     :param unmarshall: function that transforms a :class:`str`
         into an object instance
-    :param str default_encoding: encoding to apply when
-        transcoding from the underlying body :class:`byte`
-        instance
+    :param str encoding: encoding to apply when transcoding from the underlying
+        body :class:`byte` instance
 
     """
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/plain'
 
-    def __init__(self, mime_type=MIME_TYPE, default_encoding=ENCODING):
+    def __init__(self, mime_type=None, encoding=None):
         super(Text, self).__init__(mime_type)
-        self.mime_type = mime_type
-        self.default_encoding = default_encoding
+        self.mime_type = mime_type or self.MIME_TYPE
+        self.encoding = encoding or self.ENCODING
 
     def to_bytes(self, inst_data, encoding=None):
         """Transform an object into :class:`bytes`.
@@ -141,13 +137,13 @@ class Text(Transcoder):
         :param object inst_data: object to encode
         :param str encoding: character set used to encode the bytes
             returned from the ``dumps`` function.  This defaults to
-            :attr:`default_encoding`
+            :attr:`encoding`
         :returns: :class:`tuple` of the selected content
             type and the :class:`bytes` representation of
             `inst_data`
 
         """
-        selected = encoding or self.default_encoding
+        selected = encoding or self.encoding
         mime_type = '{0}; charset="{1}"'.format(self.mime_type, selected)
         dumped = self._marshall(escape.recursive_to_str(inst_data))
         return mime_type, dumped.encode(selected)
@@ -158,11 +154,11 @@ class Text(Transcoder):
         :param bytes data: stream of bytes to decode
         :param str encoding: character set used to decode the incoming
             bytes before calling the ``loads`` function.  This defaults
-            to :attr:`default_encoding`
+            to :attr:`encoding`
         :returns: decoded :class:`object` instance
 
         """
-        return self._unmarshall(data.decode(encoding or self.default_encoding))
+        return self._unmarshall(data.decode(encoding or self.encoding))
 
 
 class FormURLEncoded(Text):
@@ -174,12 +170,13 @@ class FormURLEncoded(Text):
     def _marshall(value):
         """Dump a :class:`object` instance into a Form Encoded :class:`str`
 
-        :param object value: the object to dump
+        :param dict value: the object to dump
         :return: the JSON representation of :class:`object`
         :rtype: str
 
         """
-        return parse.urlencode(_normalize(value))
+        return parse.urlencode(
+            [(k, v) for k, v in sorted(_normalize(value).items())], doseq=True)
 
     @staticmethod
     def _unmarshall(value):
@@ -215,7 +212,7 @@ class JSON(Text):
     :param str mime_type: the content type that this encoder instance
         implements. If omitted, ``application/json`` is used. This is
         passed directly to the ``TextContentHandler`` initializer.
-    :param str default_encoding: the encoding to use if none is specified.
+    :param str encoding: the encoding to use if none is specified.
         If omitted, this defaults to ``UTF-8``. This is passed directly to
         the ``TextContentHandler`` initializer.
 
@@ -261,7 +258,7 @@ class MessagePack(Binary):
     """
     MIME_TYPE = 'application/msgpack'
 
-    def __init__(self, mime_type=MIME_TYPE):
+    def __init__(self, mime_type=None):
         if umsgpack is None:  # pragma: nocache
             raise RuntimeError('MessagePack error: missing umsgpack')
         super(MessagePack, self).__init__(mime_type)
@@ -293,7 +290,7 @@ class YAML(Text):
     :param str mime_type: the content type that this encoder instance
         implements. If omitted, ``text/x-yaml`` is used. This is
         passed directly to the ``TextContentHandler`` initializer.
-    :param str default_encoding: the encoding to use if none is specified.
+    :param str encoding: the encoding to use if none is specified.
         If omitted, this defaults to ``UTF-8``. This is passed directly to
         the ``TextContentHandler`` initializer.
 
@@ -301,10 +298,10 @@ class YAML(Text):
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/x-yaml'
 
-    def __init__(self, mime_type=MIME_TYPE, default_encoding=ENCODING):
+    def __init__(self, mime_type=None, encoding=None):
         if yaml is None:  # pragma: nocache
             raise RuntimeError('YAML error: missing pyyaml')
-        super(YAML, self).__init__(mime_type, default_encoding)
+        super(YAML, self).__init__(mime_type, encoding)
 
     @staticmethod
     def _marshall(value):
@@ -326,30 +323,6 @@ class YAML(Text):
 
         """
         return yaml.load(value)
-
-
-def _dump_object(value):
-    """Called to encode unrecognized object.
-
-    :param object value: the object to encode
-    :return: the encoded object
-    :raises TypeError: when `value` cannot be encoded
-
-    This method is passed as the ``default`` keyword parameter
-    to :func:`json.dumps`.  It provides default representations for
-    a number of Python language/standard library types.
-
-    +----------------------------+---------------------------------------+
-    | Python Type                | String Format                         |
-    +----------------------------+---------------------------------------+
-    | :class:`bytes`,            | Base64 encoded string.                |
-    | :class:`bytearray`,        |                                       |
-    | :class:`memoryview`        |                                       |
-    +----------------------------+---------------------------------------+
-    """
-    if isinstance(value, (bytes, bytearray, memoryview)):
-        return base64.b64encode(value).decode('ASCII')
-    raise TypeError('{!r} is not serializable'.format(value))
 
 
 def b64encode(value):

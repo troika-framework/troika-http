@@ -5,6 +5,7 @@ import struct
 import sys
 import unittest
 import uuid
+import yaml
 
 from troika.http import transcoders
 
@@ -55,6 +56,30 @@ def pack_bytes(payload):
     return prefix + payload
 
 
+class FormURLEncodedTests(unittest.TestCase):
+
+    def setUp(self):
+        super(FormURLEncodedTests, self).setUp()
+        self.transcoder = transcoders.FormURLEncoded()
+
+    def test_bidirectional_transcoding(self):
+        value = {
+            'hello': 'world',
+            'foo': 'bar',
+            'baz': 'qux',
+            'corgie': [
+                'one', 'two', 'three'
+            ]
+        }
+        mime_type, transcoded = self.transcoder.to_bytes(value)
+        self.assertEqual('application/x-www-form-urlencoded; charset="UTF-8"',
+                         mime_type)
+        self.assertEqual(
+            transcoded,
+            b'baz=qux&corgie=one&corgie=two&corgie=three&foo=bar&hello=world')
+        self.assertDictEqual(value, self.transcoder.from_bytes(transcoded))
+
+
 class JSONTests(unittest.TestCase):
 
     def setUp(self):
@@ -101,6 +126,13 @@ class JSONTests(unittest.TestCase):
     def test_that_unhandled_objects_raise_type_error(self):
         with self.assertRaises(TypeError):
             self.transcoder.to_bytes(object())
+
+    def test_bi_directional_transcoding(self):
+        value = {'foo': 'bar'}
+        mime_type, transcoded = self.transcoder.to_bytes(value)
+        self.assertEqual('application/json; charset="UTF-8"', mime_type)
+        self.assertEqual(transcoded, b'{"foo":"bar"}')
+        self.assertDictEqual(value, self.transcoder.from_bytes(transcoded))
 
 
 class MessagePackTests(unittest.TestCase):
@@ -202,3 +234,34 @@ class MessagePackTests(unittest.TestCase):
         dumped = self.transcoder._marshall(data)
         self.assertEqual(self.transcoder._unmarshall(dumped), data)
         self.assertEqual(dumped, pack_bytes(data))
+
+    def test_bi_directional_transcoding(self):
+        value = {'foo': 'bar'}
+        mime_type, transcoded = self.transcoder.to_bytes(value)
+        self.assertEqual('application/msgpack', mime_type)
+        self.assertEqual(transcoded, b'\x81\xa3foo\xa3bar')
+        self.assertDictEqual(value, self.transcoder.from_bytes(transcoded))
+
+
+class YAMLTests(unittest.TestCase):
+
+    def setUp(self):
+        super(YAMLTests, self).setUp()
+        self.transcoder = transcoders.YAML()
+
+    def test_bidirectional_transcoding(self):
+        value = {
+            'hello': {
+                'world': {
+                    'foo': 'bar',
+                    'baz': 'qux',
+                    'corgie': [
+                        'one', 'two', 'three'
+                    ]
+                }
+            }
+        }
+        mime_type, transcoded = self.transcoder.to_bytes(value)
+        self.assertEqual('text/x-yaml; charset="UTF-8"', mime_type)
+        self.assertEqual(transcoded, yaml.dump(value).encode())
+        self.assertDictEqual(value, self.transcoder.from_bytes(transcoded))
