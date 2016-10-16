@@ -30,8 +30,8 @@ class RequestHandler:
 
     def __init__(self, application, request, route):
         self.application = application
-        self.logger = logging.getLogger(
-            '{}.{}'.format(__name__, self.__class__.__name__))
+        self.logger = logging.getLogger('{}.{}'.format(
+            __name__, self.__class__.__name__))
         self.request = request
         self.route = route
 
@@ -109,12 +109,10 @@ class RequestHandler:
             parsed = parsed,
         try:
             selected, _ = algorithms.select_content_type(
-                parsed,
-                self.application.transcoders[0])
+                parsed, self.application.transcoders[0])
         except errors.NoMatch:
-            raise ValueError(
-                'Cant transcode a Content-Type of {}'.format(
-                    self.request.headers.get('Content-Type', '')))
+            raise ValueError('Cant transcode a Content-Type of {}'.format(
+                self.request.headers.get('Content-Type', '')))
         key = '/'.join([selected.content_type, selected.content_subtype])
         transcoder = self.application.transcoders[1][key]
         return transcoder.from_bytes(self.request.body)
@@ -188,8 +186,9 @@ class RequestHandler:
         stack = []
         if kwargs.get('exc_info'):
             if self.settings['serve_traceback']:
-                stack = [l for l in
-                         traceback.format_exception(*kwargs['exc_info'])]
+                stack = [
+                    l for l in traceback.format_exception(*kwargs['exc_info'])
+                ]
             del kwargs['exc_info']
 
         content_type = self._get_response_content_type()
@@ -276,8 +275,8 @@ class RequestHandler:
         elif isinstance(error, exceptions.HTTPError):
             self.write_error(error=error)
         else:
-            LOGGER.exception('Uncaught exception: %s', error,
-                             exc_info=exc_info)
+            LOGGER.exception(
+                'Uncaught exception: %s', error, exc_info=exc_info)
             self.write_error(exceptions.HTTPError(500), exc_info=exc_info)
 
 
@@ -287,6 +286,7 @@ class DefaultHandler(RequestHandler):
     automatically.
 
     """
+
     def prepare(self):
         raise exceptions.HTTPError(404)
 
@@ -311,6 +311,7 @@ class RedirectHandler(RequestHandler):
         application.run()
 
     """
+
     def initialize(self, url, permanent=False):
         self._url = url
         self._permanent = permanent

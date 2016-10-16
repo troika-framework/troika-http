@@ -4,6 +4,7 @@
 import asyncio
 from http import cookies
 import datetime
+import functools
 import ipaddress
 import logging
 import numbers
@@ -16,11 +17,12 @@ from email import utils
 import httptools
 
 LOGGER = logging.getLogger(__name__)
+
+_HEADERS_END = [b'\r\n']
 _INVALID_HEADER_CHAR_RE = re.compile(r'[\x00-\x1f]')
 
 
 class HTTPRequest:
-
     def __init__(self, transport):
         self._finish_time = None
         self._start_time = time.time()
@@ -45,10 +47,10 @@ class HTTPRequest:
 
     def __repr__(self):
         parts = {'protocol', 'host', 'method', 'uri', 'version', 'remote_ip'}
-        args = ', '.join(['{!s}={!r}'.format(k, getattr(self, k)) for k in
-                          parts])
-        return '{}({}, headers={!r})'.format(
-            self.__class__.__name__, args, self.headers)
+        args = ', '.join(
+            ['{!s}={!r}'.format(k, getattr(self, k)) for k in parts])
+        return '{}({}, headers={!r})'.format(self.__class__.__name__, args,
+                                             self.headers)
 
     def full_url(self):
         return '{}://{}{}'.format(self.protocol, self.host, self.uri)
@@ -112,13 +114,15 @@ class HTTPResponse:
     def write_headers(self):
         if self.headers_written:
             raise RuntimeError('Headers already written')
-        self.headers_written = True
-        self.transport.write(b''.join(
-            ['HTTP/{} {} {}\r\n'.format(
+        self.transport.write(
+            b''.join(['HTTP/{} {} {}\r\n'.format(
                 self.http_version, self.status_code,
                 responses[self.status_code]).encode('utf-8')
-             ] + ['{}: {}\r\n'.format(k, v).encode('utf-8') for k, v in
-                  _normalize_headers(self.headers).items()] + [b'\r\n']))
+            ] + [
+                '{}: {}\r\n'.format(k, v).encode('utf-8')
+                for k, v in _normalize_headers(self.headers).items()
+            ] + _HEADERS_END))
+        self.headers_written = True
 
     def write_body(self):
         self.transport.write(self.body)
@@ -154,7 +158,7 @@ class HTTPServerProtocol(asyncio.Protocol):
         self.request.query_arguments = parse.parse_qs(parsed.query)
 
     def on_header(self, name, value):
-        key = _normalize(name.decode('utf-8'))
+        key = _normalize_header_key(name.decode('utf-8'))
         if key == 'Cookie':
             self.request.cookies = cookies.BaseCookie(value.decode('utf-8'))
         elif key in {'X-Forwarded-For', 'X-Real-Ip'}:
@@ -184,15 +188,16 @@ class HTTPServerProtocol(asyncio.Protocol):
         self.loop.create_task(self.application.dispatch(self.request))
 
 
-def _normalize(value):
-    return '-'.join([part.capitalize() for part in value.split('-')])
-
-
 def _normalize_headers(headers):
     normalized = {}
     for key, value in headers.items():
-        normalized[_normalize(key)] = _normalize_header_value(value)
+        normalized[_normalize_header_key(key)] = _normalize_header_value(value)
     return normalized
+
+
+@functools.lru_cache(30)
+def _normalize_header_key(value):
+    return '-'.join([part.capitalize() for part in value.split('-')])
 
 
 def _normalize_header_value(value):
@@ -205,11 +210,8 @@ def _normalize_header_value(value):
     elif isinstance(value, datetime.datetime):
         retval = utils.format_datetime(value)
     else:
-        raise ValueError(
-            'Unsupported header value type: {}'.format(type(value)))
+        raise ValueError('Unsupported header value type: {}'.format(
+            type(value)))
     if _INVALID_HEADER_CHAR_RE.match(retval):
         raise ValueError('Unsafe header value: {!r}'.format(value))
     return retval
-
-
-

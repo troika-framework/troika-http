@@ -4,9 +4,10 @@ import re
 
 LOGGER = logging.getLogger(__name__)
 
-Match = collections.namedtuple(
-    'Match', ['handler', 'name', 'pattern', 'suppress_logging', 'init_kwargs',
-              'args', 'kwargs'])
+Match = collections.namedtuple('Match', [
+    'handler', 'name', 'pattern', 'suppress_logging', 'init_kwargs', 'args',
+    'kwargs'
+])
 
 
 def match(routes, request):
@@ -20,8 +21,8 @@ def match(routes, request):
         result = route.match(request.path)
         if result:
             return Match(route.handler, route.name, route.pattern,
-                         route.suppress_logging, route.kwargs, result.group(),
-                         result.groupdict())
+                         route.suppress_logging, route.kwargs,
+                         result.group(), result.groupdict())
 
 
 class Route:
@@ -32,7 +33,11 @@ class Route:
     __slots__ = ('pattern', 'compiled', 'handler', 'kwargs', 'name',
                  'suppress_logging')
 
-    def __init__(self, pattern, handler, kwargs=None, name=None,
+    def __init__(self,
+                 pattern,
+                 handler,
+                 kwargs=None,
+                 name=None,
                  suppress_logging=False):
         """Create a new Route association
 

@@ -1,2 +1,3 @@
 sphinx
+yapf
 -r testing.txt
