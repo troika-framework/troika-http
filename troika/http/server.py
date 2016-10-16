@@ -3,18 +3,20 @@
 """
 import asyncio
 from http import cookies
+import datetime
 import ipaddress
 import logging
+import numbers
 from urllib import parse
+import re
 from http.client import responses
 import time
 from email import utils
 
 import httptools
 
-from troika.http import __version__
-
 LOGGER = logging.getLogger(__name__)
+_INVALID_HEADER_CHAR_RE = re.compile(r'[\x00-\x1f]')
 
 
 class HTTPRequest:
@@ -116,7 +118,7 @@ class HTTPResponse:
                 self.http_version, self.status_code,
                 responses[self.status_code]).encode('utf-8')
              ] + ['{}: {}\r\n'.format(k, v).encode('utf-8') for k, v in
-                  self.headers.items()] + [b'\r\n']))
+                  _normalize_headers(self.headers).items()] + [b'\r\n']))
 
     def write_body(self):
         self.transport.write(self.body)
@@ -184,3 +186,30 @@ class HTTPServerProtocol(asyncio.Protocol):
 
 def _normalize(value):
     return '-'.join([part.capitalize() for part in value.split('-')])
+
+
+def _normalize_headers(headers):
+    normalized = {}
+    for key, value in headers.items():
+        normalized[_normalize(key)] = _normalize_header_value(value)
+    return normalized
+
+
+def _normalize_header_value(value):
+    if isinstance(value, str):
+        retval = value
+    elif isinstance(value, bytes):
+        retval = value.decode('latin1')
+    elif isinstance(value, numbers.Integral):
+        retval = str(value)
+    elif isinstance(value, datetime.datetime):
+        retval = utils.format_datetime(value)
+    else:
+        raise ValueError(
+            'Unsupported header value type: {}'.format(type(value)))
+    if _INVALID_HEADER_CHAR_RE.match(retval):
+        raise ValueError('Unsafe header value: {!r}'.format(value))
+    return retval
+
+
+
