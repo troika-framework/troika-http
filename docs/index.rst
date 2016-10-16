@@ -8,6 +8,9 @@ feel very familiar for those who write Tornado applications.
 .. toctree::
    :maxdepth: 2
 
+   example
+
+
 Indices and tables
 ==================
 

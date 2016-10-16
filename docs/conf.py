@@ -3,7 +3,7 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('..'))
 
 from troika.http import __version__
 
@@ -15,6 +15,7 @@ extensions = [
 
 templates_path = ['_templates']
 source_suffix = '.rst'
+master_doc = 'index'
 
 # General information about the project.
 project = 'Troika HTTP'
@@ -29,5 +30,4 @@ pygments_style = 'sphinx'
 todo_include_todos = False
 htmlhelp_basename = 'TroikaHTTPdoc'
 
-intersphinx_mapping = {'https://docs.python.org/': None,
-                       'https://troika.readthedocs.org/': None}
+intersphinx_mapping = {'https://docs.python.org/': None}
