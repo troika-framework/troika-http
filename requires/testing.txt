@@ -1,0 +1,8 @@
+codecov
+coverage
+flake8
+nose
+pylint
+pyyaml
+umsgpack
+-r installation.txt
