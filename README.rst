@@ -20,5 +20,5 @@ See `CONTRIBUTING.md <CONTRIBUTING.md>`_
 .. |Coverage| image:: https://img.shields.io/codecov/c/github/troika-framework/troika-http?
    :target: https://codecov.io/github/troika-framework/troika-http?branch=master
 
-.. |Docs| image:: https://readthedocs.org/projects/troika/badge/?version=stable
-   :target: https://troika.readthedocs.org
+.. |Docs| image:: https://readthedocs.org/projects/troika-http/badge/?version=stable
+   :target: https://troika-http.readthedocs.org
