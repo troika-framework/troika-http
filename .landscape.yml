@@ -1,6 +1,5 @@
 doc-warnings: true
 test-warnings: false
-strictness: high
 pep8:
   full: true
 autodetect: true
