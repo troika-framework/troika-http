@@ -18,8 +18,6 @@ try:
 except ImportError:  # pragma: nocover
     yaml = None
 
-from troika.http import escape
-
 PACKABLE_TYPES = (bool, int, float)
 
 
