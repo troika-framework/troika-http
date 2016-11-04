@@ -11,6 +11,7 @@ ignore-paths:
   - docs
   - examples
   - tests
+  - setup.py
 python-targets:
   - 2
   - 3
