@@ -3,12 +3,13 @@ Troika HTTP
 ===========
 
 """
-__version__ = '0.1.0'
+
 
 try:
     from troika.http.application import Application
     from troika.http.handlers import RequestHandler, RedirectHandler
     from troika.http.route import Route
+    from troika.http.version import __version__
 except ImportError as error:  # pragma: nocover
     # Allows for importing the version when setting up
     Application = None

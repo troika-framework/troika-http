@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from troika.http import \
-    exceptions, handlers, server, route, transcoders, __version__
+    exceptions, handlers, server, route, transcoders, version
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,7 +51,8 @@ class Application:
                    1000.0 * handler.request.request_time())
 
     def run(self):
-        LOGGER.info('Starting troika.http.Application v%s', __version__)
+        LOGGER.info('Starting troika.http.Application v%s',
+                    version.__version__)
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
@@ -107,6 +108,6 @@ class Application:
         settings.setdefault('log_function', self.log_request)
         settings.setdefault('serve_traceback', False)
         settings.setdefault('server_name', 'troika-http')
-        settings.setdefault('server_version', __version__)
+        settings.setdefault('server_version', version.__version__)
         settings.setdefault('static_path', None)
         return settings
