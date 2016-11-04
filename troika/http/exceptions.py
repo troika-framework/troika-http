@@ -4,12 +4,14 @@ import http
 
 
 class Finish(Exception):
+
     """Raise to finish processing the HTTP Request"""
 
     pass
 
 
 class HTTPError(Exception):
+
     """Raise to finish the HTTP Request handling, returning an HTTP error
     as the response.
 
@@ -27,8 +29,10 @@ class HTTPError(Exception):
     """
 
     def __init__(self, status_code, phrase=None, description=None):
-        """Raise a new HTTP Error. Both ``phrase`` and ``description`` can
-        omitted and the default values will be used
+        """Raise a new HTTP Error
+
+        If``phrase`` or ``description`` are omitted and the default values
+        will be used.
 
         :param int status_code: The HTTP status code
         :param str phrase: Optionally override the HTTP response phrase
