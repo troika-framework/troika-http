@@ -202,16 +202,16 @@ def _normalize_header_key(value):
 
 def _normalize_header_value(value):
     if isinstance(value, str):
-        retval = value
+        pass
     elif isinstance(value, bytes):
-        retval = value.decode('latin1')
+        value = value.decode('latin1')
     elif isinstance(value, numbers.Integral):
-        retval = str(value)
+        value = str(value)
     elif isinstance(value, datetime.datetime):
-        retval = utils.format_datetime(value)
+        value = utils.format_datetime(value)
     else:
         raise ValueError('Unsupported header value type: {}'.format(
             type(value)))
-    if _INVALID_HEADER_CHAR_RE.match(retval):
+    if _INVALID_HEADER_CHAR_RE.match(value):
         raise ValueError('Unsafe header value: {!r}'.format(value))
-    return retval
+    return value

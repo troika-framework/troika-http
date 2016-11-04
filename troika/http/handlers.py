@@ -122,8 +122,14 @@ class RequestHandler:
         self.write_error(
             exceptions.HTTPError(status_code, reason, message), **kwargs)
 
-    def set_header(self, key, value):
-        self.request.response.headers[key] = value
+    def set_header(self, field, value):
+        """Set a HTTP response header field.
+
+        :param str field: The response header field name
+        :param str value: The response header field value
+
+        """
+        self.request.response.headers[field] = value
 
     def set_status(self, status_code, reason=None):
         """Set the response status code and optionally the response reason.
@@ -131,13 +137,17 @@ class RequestHandler:
 
         :param int status_code:
         :param str reason:
-        :return:
 
         """
         self.request.response.status_code = status_code
         self.request.response.reason = reason
 
     def write(self, chunk):
+        """Write the HTTP response body content.
+
+        :param mixed chunk: The content to write
+
+        """
         if isinstance(chunk, str):
             chunk = chunk.encode('utf-8')
         elif isinstance(chunk, dict):
@@ -161,8 +171,8 @@ class RequestHandler:
         values = {
             'status_code': error.status_code,
             'exception': error.__class__.__name__,
-            'reason': error.reason,
-            'message': error.message
+            'phrase': error.phrase,
+            'description': error.description
         }
         values.update(kwargs)
         stack = []
@@ -186,8 +196,7 @@ class RequestHandler:
     @asyncio.coroutine
     def execute(self):
         # Method invoked by :meth:`troika.http.Application.dispatch` to
-        # process the request. This is not a normal docstring so it is not
-        # exposed in the user documentation
+        # process the request.
         self.logger.debug('Executing %r', self.request)
         result = self.initialize(**self.route.init_kwargs)
         if result:
@@ -215,6 +224,12 @@ class RequestHandler:
 
     @asyncio.coroutine
     def _execute(self):
+        """Invoked by :meth:`troika.http.RequestHandler.execute` to execute
+        the :meth:`troika.http.RequestHandler.prepare` and the
+        :meth:`troika.http.RequestHandler.verb` method, where ``verb`` is
+        the HTTP verb of the request.
+
+        """
         result = self.prepare()
         if result:
             yield from result
@@ -229,6 +244,12 @@ class RequestHandler:
 
     @functools.lru_cache(1)
     def _get_response_content_type(self):
+        """Detect the Content-Type for the request, parsing the ``Accept``
+        header.
+
+        :rtype: str
+
+        """
         accept = self.request.headers.get('Accept')
         if accept == '*/*' or not accept:
             accept = self.settings['default_content_type']
