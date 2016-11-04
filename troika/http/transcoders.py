@@ -147,7 +147,7 @@ class Text:
     def _marshall(value, encoding):
         value = _normalize(value, True)
         if isinstance(value, str):
-            value = value.encode('utf-8')
+            value = value.encode(encoding)
         return value
 
     @staticmethod
@@ -310,7 +310,9 @@ def b64encode(value):
 
 
 def _normalize(value, base64_encode=True):
-    """Called to encode unrecognized object for permissive transcoders like
+    """Normalized mixed values
+
+    Called to encode unrecognized object for permissive transcoders like
     JSON and YAML. This method provides default representations for
     a number of Python language/standard library types.
 
@@ -336,7 +338,8 @@ def _normalize(value, base64_encode=True):
     elif isinstance(value, str):
         return value
     elif isinstance(value, (collections.Sequence, collections.Set)):
-        return [_normalize(item) for item in value]
+        return [_normalize(item, base64_encode) for item in value]
     elif isinstance(value, collections.Mapping):
-        return dict((k, _normalize(v)) for k, v in value.items())
+        return dict((k, _normalize(v, base64_encode))
+                    for k, v in value.items())
     raise TypeError('{} is not supported'.format(value.__class__.__name__))
