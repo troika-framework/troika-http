@@ -1,8 +1,4 @@
-"""
-Content Transcoders
-===================
-
-"""
+"""Content Transcoders"""
 
 import base64
 import collections
@@ -28,8 +24,10 @@ PACKABLE_TYPES = (bool, int, float)
 
 
 def default():
-    """Return the default transcoders to use when creating an instance of
-    :cls:`troika.http.Applicaiton`.
+    """Return default transcoders
+
+    The default transcoders to use when creating an instance of
+    :cls:`troika.http.Application`.
 
     :rtype: list
 
@@ -50,8 +48,10 @@ def default():
 
 
 class Transcoder:
-    """Base Transcoder Implementation that will always return values passed
-    into it.
+
+    """Base Transcoder Implementation
+
+     The base transcoder only returns the values passed into it.
 
     :param str mime_type: registered content type
     :param marshall: function that marshalls/serializes a value
@@ -99,6 +99,7 @@ class Binary(Transcoder):
 
 
 class Text(Transcoder):
+
     """Transcodes between textual and object representations.
 
     This transcoder wraps functions that transcode between :class:`str`
@@ -107,6 +108,7 @@ class Text(Transcoder):
     that tornado expects.
 
     """
+
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/plain'
 
@@ -151,7 +153,10 @@ class Text(Transcoder):
 
 
 class FormURLEncoded(Text):
-    """Encodes dict values as URL encoded form data with as follows:
+
+    """Transcodes Form URL Encoded data
+
+    Transcodes values to/from URL encoded form data with as follows:
 
     1. Control names and values are escaped. Space characters are replaced by
         ``+``, and then reserved characters are escaped as described in
@@ -164,6 +169,7 @@ class FormURLEncoded(Text):
         pairs are separated from each other by ``&``.
 
     """
+
     ENCODING = 'UTF-8'
     MIME_TYPE = 'application/x-www-form-urlencoded'
 
@@ -195,7 +201,8 @@ class FormURLEncoded(Text):
 
 
 class JSON(Text):
-    """JSON transcoder instance.
+
+    """JSON Transcoder
 
     This JSON encoder uses :func:`json.loads` and :func:`json.dumps` to
     implement JSON encoding/decoding.  The :meth:`dump_object` method is
@@ -203,6 +210,7 @@ class JSON(Text):
     support.
 
     """
+
     ENCODING = 'UTF-8'
     MIME_TYPE = 'application/json'
 
@@ -229,13 +237,17 @@ class JSON(Text):
 
 
 class MessagePack(Binary):
-    """This transcoder uses the `umsgpack`_ library to encode and decode
+
+    """MessagePack Transcoder
+
+    This transcoder uses the `umsgpack`_ library to encode and decode
     objects according to the `MessagePack format`_.
 
     .. _umsgpack: https://github.com/vsergeev/u-msgpack-python
     .. _MessagePack format: http://msgpack.org/index.html
 
     """
+
     MIME_TYPE = 'application/msgpack'
 
     def __init__(self, mime_type=None):
@@ -274,7 +286,13 @@ class MessagePack(Binary):
 
 
 class YAML(Text):
-    """Transcode objects into YAML."""
+
+    """YAML Transcoder
+
+    Transcode objects into YAML using the ``pyyaml`` library.
+
+    """
+
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/x-yaml'
 

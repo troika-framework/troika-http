@@ -12,7 +12,9 @@ class Finish(Exception):
 
 class HTTPError(Exception):
 
-    """Raise to finish the HTTP Request handling, returning an HTTP error
+    """HTTP Request Error
+
+    Raise to finish the HTTP Request handling, returning an HTTP error
     as the response.
 
     Status codes from the following RFCs are all observed:
