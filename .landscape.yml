@@ -1,0 +1,16 @@
+doc-warnings: true
+test-warnings: false
+strictness: veryhigh
+pep8:
+  full: true
+autodetect: true
+requirements:
+  - requires/testing.txt
+  - requires/installation.txt
+ignore-paths:
+  - docs
+  - examples
+  - tests
+python-targets:
+  - 2
+  - 3
