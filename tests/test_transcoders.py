@@ -1,8 +1,8 @@
 import base64
 import datetime
+import json
 import os
 import struct
-import sys
 import unittest
 import uuid
 import yaml
@@ -56,6 +56,56 @@ def pack_bytes(payload):
     return prefix + payload
 
 
+class DefaultTranscoderTests(unittest.TestCase):
+
+    def test_default_transcoders(self):
+        expectation = [
+            ('text/plain', transcoders.Text),
+            ('text/html', transcoders.Text),
+            ('application/octet-stream', transcoders.Binary),
+            ('application/x-www-form-urlencoded', transcoders.FormURLEncoded),
+            ('application/json', transcoders.JSON),
+            ('application/msgpack', transcoders.MessagePack),
+            ('text/x-yaml', transcoders.YAML),
+        ]
+        parsed, values = transcoders.default()
+        print(values)
+        for mime_type, transcoder in values.items():
+            self.assertIn((mime_type, transcoder.__class__), expectation)
+
+
+class BinaryTranscoderTests(unittest.TestCase):
+
+    def setUp(self):
+        super(BinaryTranscoderTests, self).setUp()
+        self.transcoder = transcoders.Binary()
+
+    def test_to_bytes(self):
+        self.assertEqual(self.transcoder.to_bytes(b'\x81\xa3foo\xa3bar'),
+                         ('application/octet-stream', b'\x81\xa3foo\xa3bar'))
+
+    def test_str_to_bytes(self):
+        self.assertEqual(self.transcoder.to_bytes('foo'),
+                         ('application/octet-stream', b'foo'))
+
+    def test_from_bytes(self):
+        self.assertEqual(self.transcoder.from_bytes(b'foo'), b'foo')
+
+
+class TextTranscoderTests(unittest.TestCase):
+
+    def setUp(self):
+        super(TextTranscoderTests, self).setUp()
+        self.transcoder = transcoders.Text()
+
+    def test_to_bytes(self):
+        self.assertEqual(self.transcoder.to_bytes('foo'),
+                         ('text/plain; charset="UTF-8"', b'foo'))
+
+    def test_from_bytes(self):
+        self.assertEqual(self.transcoder.from_bytes(b'foo'), 'foo')
+
+
 class FormURLEncodedTests(unittest.TestCase):
 
     def setUp(self):
@@ -87,41 +137,37 @@ class JSONTests(unittest.TestCase):
         self.transcoder = transcoders.JSON()
 
     def test_that_uuids_are_dumped_as_strings(self):
-        obj = {'id': uuid.uuid4()}
-        dumped = self.transcoder._marshall(obj)
-        self.assertEqual(dumped.replace(' ', ''), '{"id":"%s"}' % obj['id'])
+        value = {'id': uuid.uuid4()}
+        self.assertEqual(self.transcoder.to_bytes(value)[1],
+                         json.dumps({'id': str(value['id'])},
+                                    separators=(',', ':')).encode('utf-8'))
 
     def test_that_datetimes_are_dumped_in_isoformat(self):
-        obj = {'now': datetime.datetime.now()}
-        dumped = self.transcoder._marshall(obj)
-        self.assertEqual(dumped.replace(' ', ''),
-                         '{"now":"%s"}' % obj['now'].isoformat())
+        value = {'now': datetime.datetime.now()}
+        self.assertEqual(
+            self.transcoder.to_bytes(value)[1],
+            json.dumps({'now': value['now'].isoformat()},
+                       separators=(',', ':')).encode('utf-8'))
 
     def test_that_tzaware_datetimes_include_tzoffset(self):
-        obj = {'now': datetime.datetime.now().replace(tzinfo=UTC())}
-        self.assertTrue(obj['now'].isoformat().endswith('+00:00'))
-        dumped = self.transcoder._marshall(obj)
-        self.assertEqual(dumped.replace(' ', ''),
-                         '{"now":"%s"}' % obj['now'].isoformat())
-
-    @unittest.skipIf(sys.version_info[0] == 2, 'bytes unsupported on python 2')
-    def test_that_bytes_are_base64_encoded(self):
-        bin = bytes(os.urandom(127))
-        dumped = self.transcoder._marshall({'bin': bin})
-        self.assertEqual(
-            dumped, '{"bin":"%s"}' % base64.b64encode(bin).decode('ASCII'))
+        value = {'now': datetime.datetime.now().replace(tzinfo=UTC())}
+        self.assertTrue(value['now'].isoformat().endswith('+00:00'))
+        self.assertEqual(self.transcoder.to_bytes(value)[1],
+                         json.dumps({
+                             'now': value['now'].isoformat()
+                         }, separators=(',', ':')).encode('utf-8'))
 
     def test_that_bytearrays_are_base64_encoded(self):
-        bin = bytearray(os.urandom(127))
-        dumped = self.transcoder._marshall({'bin': bin})
-        self.assertEqual(
-            dumped, '{"bin":"%s"}' % base64.b64encode(bin).decode('ASCII'))
+        value = bytearray(os.urandom(127))
+        expectation = '{"bin":"%s"}' % base64.b64encode(value).decode('ASCII')
+        self.assertEqual(self.transcoder.to_bytes({'bin': value}, 'utf-8')[1],
+                         expectation.encode('utf-8'))
 
     def test_that_memoryviews_are_base64_encoded(self):
-        bin = memoryview(os.urandom(127))
-        dumped = self.transcoder._marshall({'bin': bin})
-        self.assertEqual(
-            dumped, '{"bin":"%s"}' % base64.b64encode(bin).decode('ASCII'))
+        value = memoryview(os.urandom(127))
+        expectation = '{"bin":"%s"}' % base64.b64encode(value).decode('ASCII')
+        self.assertEqual(self.transcoder.to_bytes({'bin': value}, 'utf-8')[1],
+                         expectation.encode('utf-8'))
 
     def test_that_unhandled_objects_raise_type_error(self):
         with self.assertRaises(TypeError):
@@ -263,5 +309,5 @@ class YAMLTests(unittest.TestCase):
         }
         mime_type, transcoded = self.transcoder.to_bytes(value)
         self.assertEqual('text/x-yaml; charset="UTF-8"', mime_type)
-        self.assertEqual(transcoded, yaml.dump(value).encode())
+        self.assertEqual(transcoded, yaml.dump(value).encode('utf-8'))
         self.assertDictEqual(value, self.transcoder.from_bytes(transcoded))

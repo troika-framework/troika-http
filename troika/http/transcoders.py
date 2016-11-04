@@ -47,18 +47,19 @@ def default():
             dict(transcoders))
 
 
-class Transcoder:
+class Binary:
 
-    """Base Transcoder Implementation
+    """Base Binary Transcoder
 
-     The base transcoder only returns the values passed into it.
+    This transcoder wraps functions that transcode between :class:`str`
+    and :class:`object` instances.  In particular, it handles the
+    additional step of transcoding into the :class:`byte` instances.
 
-    :param str mime_type: registered content type
-    :param marshall: function that marshalls/serializes a value
-    :param unmarshall: function that unmarshalls/deserializes a value
+    :param str mime_type: The mime type to use
 
     """
-    MIME_TYPE = 'text/plain'
+
+    MIME_TYPE = 'application/octet-stream'
 
     def __init__(self, mime_type=None):
         self.mime_type = mime_type or self.MIME_TYPE
@@ -67,9 +68,8 @@ class Transcoder:
         """Transform an object into :class:`bytes`.
 
         :param object value: object to encode
-        :returns: :class:`tuple` of the selected content
-            type and the :class:`bytes` representation of
-            `inst_data`
+        :returns: :class:`tuple` of the selected content type and the
+            :class:`bytes` representation of `value`
         :raises: TypeError
 
         """
@@ -86,6 +86,9 @@ class Transcoder:
 
     @staticmethod
     def _marshall(value):
+        value = _normalize(value, False)
+        if isinstance(value, str):
+            value = value.encode('utf-8')
         return value
 
     @staticmethod
@@ -93,19 +96,16 @@ class Transcoder:
         return value
 
 
-class Binary(Transcoder):
-    """Pack and unpack binary types."""
-    MIME_TYPE = 'application/octet-stream'
-
-
-class Text(Transcoder):
+class Text:
 
     """Transcodes between textual and object representations.
 
     This transcoder wraps functions that transcode between :class:`str`
     and :class:`object` instances.  In particular, it handles the
-    additional step of transcoding into the :class:`byte` instances
-    that tornado expects.
+    additional step of transcoding into the :class:`byte` instances.
+
+    :param str mime_type: The mime type to use
+    :param str encoding: The string encoding to use
 
     """
 
@@ -113,19 +113,14 @@ class Text(Transcoder):
     MIME_TYPE = 'text/plain'
 
     def __init__(self, mime_type=None, encoding=None):
-        """Create a new text transcoder.
-
-        :param str mime_type: The mime type to use
-        :param str encoding: The string encoding to use
-        """
-        super(Text, self).__init__(mime_type)
+        """Create a new text transcoder instance"""
         self.mime_type = mime_type or self.MIME_TYPE
         self.encoding = encoding or self.ENCODING
 
-    def to_bytes(self, inst_data, encoding=None):
+    def to_bytes(self, value, encoding=None):
         """Transform an object into :class:`bytes`.
 
-        :param object inst_data: object to encode
+        :param mixed value: object to encode
         :param str encoding: character set used to encode the bytes
             returned from the ``dumps`` function.  This defaults to
             :attr:`encoding`
@@ -135,9 +130,8 @@ class Text(Transcoder):
 
         """
         selected = encoding or self.encoding
-        mime_type = '{0}; charset="{1}"'.format(self.mime_type, selected)
-        dumped = self._marshall(escape.recursive_to_str(inst_data))
-        return mime_type, dumped.encode(selected)
+        return ('{0}; charset="{1}"'.format(self.mime_type, selected),
+                self._marshall(value, selected))
 
     def from_bytes(self, data, encoding=None):
         """Get an object from :class:`bytes`
@@ -149,7 +143,18 @@ class Text(Transcoder):
         :returns: decoded :class:`object` instance
 
         """
-        return self._unmarshall(data.decode(encoding or self.encoding))
+        return self._unmarshall(data, encoding or self.encoding)
+
+    @staticmethod
+    def _marshall(value, encoding):
+        value = _normalize(value, True)
+        if isinstance(value, str):
+            value = value.encode('utf-8')
+        return value
+
+    @staticmethod
+    def _unmarshall(value, encoding):
+        return value.decode(encoding)
 
 
 class FormURLEncoded(Text):
@@ -174,26 +179,14 @@ class FormURLEncoded(Text):
     MIME_TYPE = 'application/x-www-form-urlencoded'
 
     @staticmethod
-    def _marshall(value):
-        """Dump a :class:`object` instance into a Form Encoded :class:`str`
-
-        :param dict value: the object to dump
-        :return: the JSON representation of :class:`object`
-        :rtype: str
-
-        """
+    def _marshall(value, encoding):
         return parse.urlencode(
-            [(k, v) for k, v in sorted(_normalize(value).items())], doseq=True)
+            [(k, v) for k, v in sorted(_normalize(value).items())],
+            doseq=True).encode(encoding)
 
     @staticmethod
-    def _unmarshall(value):
-        """Transform :class:`str` into an :class:`object` instance.
-
-        :param str value: the UTF-8 representation of an object
-        :return: the decoded :class:`object` representation
-
-        """
-        data = parse.parse_qs(value)
+    def _unmarshall(value, encoding):
+        data = parse.parse_qs(value.decode(encoding))
         for key, item in data.items():
             if isinstance(item, list) and len(item) == 1:
                 data[key] = item.pop()
@@ -215,25 +208,26 @@ class JSON(Text):
     MIME_TYPE = 'application/json'
 
     @staticmethod
-    def _marshall(value):
+    def _marshall(value, encoding):
         """Dump a :class:`value` instance into a JSON :class:`str`
 
         :param object value: the object to dump
         :return: the JSON representation of :class:`object`
-        :rtype: str
+        :rtype: bytes
 
         """
-        return json.dumps(_normalize(value), separators=(',', ':'))
+        return json.dumps(
+            _normalize(value), separators=(',', ':')).encode(encoding)
 
     @staticmethod
-    def _unmarshall(value):
+    def _unmarshall(value, encoding):
         """Transform :class:`str` into an :class:`object` instance.
 
         :param str str_repr: the UTF-8 representation of an object
         :return: the decoded :class:`object` representation
 
         """
-        return json.loads(value)
+        return json.loads(value.decode(encoding), encoding=encoding)
 
 
 class MessagePack(Binary):
@@ -266,22 +260,10 @@ class MessagePack(Binary):
 
     @staticmethod
     def _marshall(value):
-        """Pack `data` into a :class:`bytes` instance.
-
-        :param object value: The object to marshall into msgpack data
-        :rtype: bytes
-
-        """
         return umsgpack.packb(_normalize(value, False))
 
     @staticmethod
     def _unmarshall(value):
-        """Unpack a :class:`object` from a :class:`bytes` instance.
-
-        :param bytes value: The msgpack data to unmarshall into an object
-        :rtype: dict
-
-        """
         return umsgpack.unpackb(value)
 
 
@@ -303,8 +285,7 @@ class YAML(Text):
             implements. If omitted, ``text/x-yaml`` is used. This is
             passed directly to the ``TextContentHandler`` initializer.
         :param str encoding: the encoding to use if none is specified.
-            If omitted, this defaults to ``UTF-8``. This is passed directly to
-            the ``TextContentHandler`` initializer.
+            If omitted, this defaults to ``UTF-8``.
 
         """
         if yaml is None:  # pragma: nocache
@@ -312,25 +293,12 @@ class YAML(Text):
         super(YAML, self).__init__(mime_type, encoding)
 
     @staticmethod
-    def _marshall(value):
-        """Dump a :class:`object` instance into a JSON :class:`str`
-
-        :param object value: the object to dump
-        :return: the JSON representation of :class:`object`
-        :rtype: str
-
-        """
-        return yaml.dump(_normalize(value))
+    def _marshall(value, encoding):
+        return yaml.dump(_normalize(value)).encode(encoding)
 
     @staticmethod
-    def _unmarshall(value):
-        """Transform :class:`str` into an :class:`object` instance.
-
-        :param str value: the UTF-8 representation of an object
-        :return: the decoded :class:`object` representation
-
-        """
-        return yaml.load(value)
+    def _unmarshall(value, encoding):
+        return yaml.load(value.decode(encoding))
 
 
 def b64encode(value):
@@ -343,7 +311,7 @@ def b64encode(value):
     return base64.b64encode(value).decode('ASCII')
 
 
-def _normalize(value, encode=True):
+def _normalize(value, base64_encode=True):
     """Called to encode unrecognized object for permissive transcoders like
     JSON and YAML. This method provides default representations for
     a number of Python language/standard library types.
@@ -359,15 +327,15 @@ def _normalize(value, encode=True):
         return value
     elif isinstance(value, uuid.UUID):
         return str(value)
-    elif isinstance(value, bytes) and encode:
-        return b64encode(value)
+    elif isinstance(value, bytes):
+        return b64encode(value) if base64_encode else value
     elif isinstance(value, bytearray):
-        return b64encode(value) if encode else bytes(value)
+        return b64encode(value) if base64_encode else bytes(value)
     elif isinstance(value, memoryview):
-        return b64encode(value) if encode else value.tobytes()
+        return b64encode(value) if base64_encode else value.tobytes()
     elif hasattr(value, 'isoformat'):
         return value.isoformat()
-    elif isinstance(value, bytes) or isinstance(value, str):
+    elif isinstance(value, str):
         return value
     elif isinstance(value, (collections.Sequence, collections.Set)):
         return [_normalize(item) for item in value]
