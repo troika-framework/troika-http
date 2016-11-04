@@ -63,13 +63,10 @@ class Transcoder:
     def __init__(self, mime_type=None):
         self.mime_type = mime_type or self.MIME_TYPE
 
-    def to_bytes(self, value, encoding=None):
+    def to_bytes(self, value):
         """Transform an object into :class:`bytes`.
 
         :param object value: object to encode
-        :param str encoding: character set used to encode the bytes
-            returned from the ``dumps`` function.  This defaults to
-            :attr:`encoding`
         :returns: :class:`tuple` of the selected content
             type and the :class:`bytes` representation of
             `inst_data`
@@ -78,13 +75,10 @@ class Transcoder:
         """
         return self.mime_type, self._marshall(value)
 
-    def from_bytes(self, data_bytes, encoding=None):  # pragma: nocover
+    def from_bytes(self, data_bytes):  # pragma: nocover
         """Get an object from :class:`bytes`
 
         :param bytes data_bytes: stream of bytes to decode
-        :param str encoding: encoding to apply when
-            transcoding from the underlying body :class:`byte`
-            instance when performing text transcoding
         :returns: decoded :class:`object` instance
 
         """
@@ -100,15 +94,7 @@ class Transcoder:
 
 
 class Binary(Transcoder):
-    """Pack and unpack binary types.
-
-    :param str mime_type: registered content type
-    :param marshall: function that transforms an object instance
-        into :class:`bytes`
-    :param unmarshall: function that transforms :class:`bytes`
-        into an object instance
-
-    """
+    """Pack and unpack binary types."""
     MIME_TYPE = 'application/octet-stream'
 
 
@@ -120,19 +106,16 @@ class Text(Transcoder):
     additional step of transcoding into the :class:`byte` instances
     that tornado expects.
 
-    :param str mime_type: registered content type
-    :param marshall: function that transforms an object instance
-        into a :class:`str`
-    :param unmarshall: function that transforms a :class:`str`
-        into an object instance
-    :param str encoding: encoding to apply when transcoding from the underlying
-        body :class:`byte` instance
-
     """
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/plain'
 
     def __init__(self, mime_type=None, encoding=None):
+        """Create a new text transcoder.
+
+        :param str mime_type: The mime type to use
+        :param str encoding: The string encoding to use
+        """
         super(Text, self).__init__(mime_type)
         self.mime_type = mime_type or self.MIME_TYPE
         self.encoding = encoding or self.ENCODING
@@ -168,7 +151,19 @@ class Text(Transcoder):
 
 
 class FormURLEncoded(Text):
+    """Encodes dict values as URL encoded form data with as follows:
 
+    1. Control names and values are escaped. Space characters are replaced by
+        ``+``, and then reserved characters are escaped as described in
+        :rfc:`RFC1738`, section 2.2: Non-alphanumeric characters are replaced
+        by ``%HH``, a percent sign and two hexadecimal digits representing the
+        ASCII code of the character. Line breaks are represented as
+        "CR LF" pairs (i.e., ``%0D%0A``).
+    2. The control names/values are listed in the order they appear in the
+        document. The name is separated from the value by ``=`` and name/value
+        pairs are separated from each other by ``&``.
+
+    """
     ENCODING = 'UTF-8'
     MIME_TYPE = 'application/x-www-form-urlencoded'
 
@@ -206,21 +201,6 @@ class JSON(Text):
     implement JSON encoding/decoding.  The :meth:`dump_object` method is
     configured to handle types that the standard JSON module does not
     support.
-    .. attribute:: dump_options
-       Keyword parameters that are passed to :func:`json.dumps` when
-       :meth:`.dumps` is called.  By default, the :meth:`dump_object`
-       method is enabled as the default object hook.
-    .. attribute:: load_options
-       Keyword parameters that are passed to :func:`json.loads` when
-       :meth:`.loads` is called.
-
-
-    :param str mime_type: the content type that this encoder instance
-        implements. If omitted, ``application/json`` is used. This is
-        passed directly to the ``TextContentHandler`` initializer.
-    :param str encoding: the encoding to use if none is specified.
-        If omitted, this defaults to ``UTF-8``. This is passed directly to
-        the ``TextContentHandler`` initializer.
 
     """
     ENCODING = 'UTF-8'
@@ -230,7 +210,7 @@ class JSON(Text):
     def _marshall(value):
         """Dump a :class:`value` instance into a JSON :class:`str`
 
-        :param object obj: the object to dump
+        :param object value: the object to dump
         :return: the JSON representation of :class:`object`
         :rtype: str
 
@@ -255,16 +235,19 @@ class MessagePack(Binary):
     .. _umsgpack: https://github.com/vsergeev/u-msgpack-python
     .. _MessagePack format: http://msgpack.org/index.html
 
-    :param str mime_type: the content type that this encoder instance
-        implements. If omitted, ``application/msgpack`` is used. This
-        is passed directly to the ``BinaryContentHandler`` initializer.
-
-    :raises: RuntimeError
-
     """
     MIME_TYPE = 'application/msgpack'
 
     def __init__(self, mime_type=None):
+        """Create a new MessagePack transcoder.
+
+        :param str mime_type: the content type that this encoder instance
+            implements. If omitted, ``application/msgpack`` is used. This
+            is passed directly to the ``BinaryContentHandler`` initializer.
+
+        :raises: RuntimeError
+
+        """
         if umsgpack is None:  # pragma: nocache
             raise RuntimeError('MessagePack error: missing umsgpack')
         super(MessagePack, self).__init__(mime_type)
@@ -291,20 +274,21 @@ class MessagePack(Binary):
 
 
 class YAML(Text):
-    """Transcode objects into YAML
-
-    :param str mime_type: the content type that this encoder instance
-        implements. If omitted, ``text/x-yaml`` is used. This is
-        passed directly to the ``TextContentHandler`` initializer.
-    :param str encoding: the encoding to use if none is specified.
-        If omitted, this defaults to ``UTF-8``. This is passed directly to
-        the ``TextContentHandler`` initializer.
-
-    """
+    """Transcode objects into YAML."""
     ENCODING = 'UTF-8'
     MIME_TYPE = 'text/x-yaml'
 
     def __init__(self, mime_type=None, encoding=None):
+        """Create a new YAML transcoder.
+
+        :param str mime_type: the content type that this encoder instance
+            implements. If omitted, ``text/x-yaml`` is used. This is
+            passed directly to the ``TextContentHandler`` initializer.
+        :param str encoding: the encoding to use if none is specified.
+            If omitted, this defaults to ``UTF-8``. This is passed directly to
+            the ``TextContentHandler`` initializer.
+
+        """
         if yaml is None:  # pragma: nocache
             raise RuntimeError('YAML error: missing pyyaml')
         super(YAML, self).__init__(mime_type, encoding)

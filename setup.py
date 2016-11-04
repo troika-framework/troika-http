@@ -51,6 +51,7 @@ setuptools.setup(
     ],
     include_package_data=True,
     install_requires=read_requirements_file('requires/installation.txt'),
+    extras_require={'msgpack': ['u-msgpack-python'], 'yaml': ['pyyaml']},
     license='BSD',
     namespace_packages=['troika'],
     py_modules=['troika.http'],
