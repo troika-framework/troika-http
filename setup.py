@@ -2,7 +2,7 @@
 import codecs
 import setuptools
 
-from troika.http import __version__
+from troika.http import version
 
 
 def read_requirements_file(name):
@@ -26,7 +26,7 @@ with codecs.open('README.rst', 'rb', encoding='utf-8') as file_obj:
 
 setuptools.setup(
     name='troika-http',
-    version=__version__,
+    version=version.__version__,
     description=('A Python 3 AsyncIO HTTP Application Framework inspired by '
                  'Tornado'),
     long_description=long_description,

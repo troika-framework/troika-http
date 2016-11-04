@@ -1,9 +1,4 @@
-"""
-Troika HTTP
-===========
-
-"""
-
+"""Troika HTTP Application Framework"""
 
 try:
     from troika.http.application import Application
@@ -16,6 +11,7 @@ except ImportError as error:  # pragma: nocover
     RedirectHandler = None
     RequestHandler = None
     Route = None
+    __version__ = None
 
 from troika.http.exceptions import *
 

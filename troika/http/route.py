@@ -1,8 +1,5 @@
-"""
-HTTP Request Routing
-====================
+"""HTTP Request Routing"""
 
-"""
 import collections
 import logging
 import re
@@ -16,7 +13,9 @@ Match = collections.namedtuple('Match', [
 
 
 def match(routes, request):
-    """Iterate over the list of routes, checking each route returning the
+    """Find a route match
+
+    Iterate over the list of routes, checking each route returning the
     first match that is found.
 
     :rtype: troika.http.route.Match
@@ -31,10 +30,14 @@ def match(routes, request):
 
 
 class Route:
-    """Specifies the association between a URI path pattern and a
+
+    """Web Application Route Association
+
+    Specifies the association between a URI path pattern and a
     :cls:`~troika.http.RequestHandler`.
 
     """
+
     __slots__ = ('pattern', 'compiled', 'handler', 'kwargs', 'name',
                  'suppress_logging')
 

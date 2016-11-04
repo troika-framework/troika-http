@@ -1,8 +1,5 @@
-"""
-HTTP Request Handlers
-=====================
+"""HTTP Request Handlers"""
 
-"""
 import asyncio
 import functools
 import logging
@@ -28,15 +25,18 @@ HTML_ERROR_TEMPLATE = """\
 
 
 class RequestHandler:
-    """
 
-    """
+    """Respond to HTTP Requests"""
+
     def __init__(self, application, request, route):
-        """
+        """Create a new RequestHandler instance.
 
-        :param application:
-        :param request:
-        :param route:
+        :param application: The troika HTTP application
+        :type: troika.http.application.Application
+        :param request: The HTTP request the handler is responding to
+        :type: troika.http.server.HTTPRequest
+        :param route: The matched route used to invoke this handler
+        :type: troika.route.Match
 
         """
         self.application = application
@@ -55,7 +55,7 @@ class RequestHandler:
         return self.application.settings
 
     def initialize(self, **kwargs):
-        """
+        """Initialize the RequestHandler
 
         :param kwargs:
 
@@ -69,15 +69,11 @@ class RequestHandler:
         self.logger.debug('Preparing %r', self.request)
 
     def on_connection_closed(self):
-        """
-
-        """
+        """Invoked if the connection is closed when not finished"""
         pass
 
     def on_finished(self):
-        """
-
-        """
+        """Invoked when the Response has been sent"""
         pass
 
     @property
@@ -120,8 +116,10 @@ class RequestHandler:
 
     @functools.lru_cache(1)
     def get_body_arguments(self):
-        """Parse the request body, parsing the content based upon the
-        ``Content-Type`` header field.
+        """Parse the request body
+
+        Use the configured transcoders to parse the content using the
+        ``Content-Type`` header field to determine which transcoder to use.
 
         :rtype: dict
 
@@ -146,8 +144,10 @@ class RequestHandler:
 
     @functools.lru_cache(1)
     def get_request_language(self):
-        """Return the language specified in the ``Accept-Language`` header,
-        returning the default of 'en_US'
+        """Return the language specified in the ``Accept-Language`` header.
+
+        If it is not specified in the request, the configured default value
+        will be returned.
 
         :rtype: str
 
@@ -186,8 +186,19 @@ class RequestHandler:
         self.finish()
 
     def require_setting(self, name):
+        """Use to ensure that a specific application setting exists.
+
+        If the setting does not exist, the request handler will return a
+        ``503`` response to the client and log the error.
+
+        :param str name: The setting name
+        :raises: troika.exceptions.HTTPError
+
+        """
         if not self.application.get(name):
-            raise RuntimeError('Missing required setting {!r}'.format(name))
+            self.logger.critical(
+                'Missing required setting %s for %s', name, self.name)
+            raise exceptions.HTTPError(503)
 
     def send_error(self, status_code, reason=None, message=None, **kwargs):
         self.write_error(
@@ -202,16 +213,17 @@ class RequestHandler:
         """
         self.request.response.headers[field] = value
 
-    def set_status(self, status_code, reason=None):
-        """Set the response status code and optionally the response reason.
-        If the response reason is not set.
+    def set_status(self, status_code, phrase=None):
+        """Set the response status code
+
+        If the response reason is not set, the default will be used
 
         :param int status_code:
-        :param str reason:
+        :param str phrase: Optional response phrase
 
         """
         self.request.response.status_code = status_code
-        self.request.response.reason = reason
+        self.request.response.phrase = phrase
 
     def write(self, chunk):
         """Write the HTTP response body content.
@@ -230,10 +242,11 @@ class RequestHandler:
         self.request.response.body += chunk
 
     def write_error(self, error, **kwargs):
-        """Overwrite to implement custom error pages. This implementaiton
-        will send a HTML error page if the default content type is `text/html`,
-        otherwise it will send the error as an object in the negotiated
-        format as specified in the `Accept` header.
+        """Overwrite to implement custom error pages.
+
+        This implementaiton will send a HTML error page if the default
+        content type is `text/html`, otherwise it will send the error as an
+        object in the negotiated format as specified in the `Accept` header.
 
         :param troika.http.HTTPError error: The error to write
         :param dict kwargs: User provided arguments to pass in for rendering
@@ -295,7 +308,9 @@ class RequestHandler:
 
     @asyncio.coroutine
     def _execute(self):
-        """Invoked by :meth:`troika.http.RequestHandler.execute` to execute
+        """Prepare and execute the request
+
+        Invoked by :meth:`troika.http.RequestHandler.execute` to execute
         the :meth:`troika.http.RequestHandler.prepare` and the
         :meth:`troika.http.RequestHandler.verb` method, where ``verb`` is
         the HTTP verb of the request.
@@ -315,8 +330,7 @@ class RequestHandler:
 
     @functools.lru_cache(1)
     def _get_response_content_type(self):
-        """Detect the Content-Type for the request, parsing the ``Accept``
-        header.
+        """Detect the requested Content-Type by parsing the ``Accept`` header.
 
         :rtype: str
 
@@ -357,7 +371,10 @@ class RequestHandler:
 
 
 class DefaultHandler(RequestHandler):
-    """Implements a RequestHandler that will raise 404. This should always
+
+    """Default HTTP Response
+
+    Implements a RequestHandler that will raise 404. This should always
     be used in the last Route in an application and is appended to the route
     automatically.
 
@@ -368,7 +385,10 @@ class DefaultHandler(RequestHandler):
 
 
 class RedirectHandler(RequestHandler):
-    """Implements a RequestHandler that can be included in the application
+
+    """Redirect HTTP Requests
+
+    Implements a RequestHandler that can be included in the application
     routes to automatically redirect to another URL.
 
     You must provide the ``url`` keyword argument for it to work properly.

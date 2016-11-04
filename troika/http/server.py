@@ -1,8 +1,5 @@
-"""
-HTTP Server
-===========
+"""HTTP Server and Request/Response Definitions"""
 
-"""
 import asyncio
 from http import cookies
 import datetime
@@ -25,6 +22,7 @@ _INVALID_HEADER_CHAR_RE = re.compile(r'[\x00-\x1f]')
 
 
 class HTTPRequest:
+
     def __init__(self, transport):
         self._finish_time = None
         self._start_time = time.time()
@@ -83,7 +81,7 @@ class HTTPResponse:
 
     body = b''
     status_code = 200
-    reason = b'OK'
+    phrase = b'OK'
 
     def __init__(self, http_version, transport, server_header,
                  default_content_type):
@@ -96,7 +94,7 @@ class HTTPResponse:
 
     def clear(self):
         self.headers = self.default_headers()
-        self.reason = b'OK'
+        self.phrase = b'OK'
         self.status_code = 200
         self.body = b''
 
@@ -131,6 +129,7 @@ class HTTPResponse:
 
 
 class HTTPServerProtocol(asyncio.Protocol):
+
     def __init__(self, *, application, loop):
         self.application = application
         self.loop = loop

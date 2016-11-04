@@ -13,7 +13,9 @@ def to_str(value, encoding):
 
 
 def recursive_to_str(value, encoding):
-    """Ensure that any bytes objects are converted to strings. This includes
+    """Recursively convert bytes to strings.
+
+    Ensure that any bytes objects are converted to strings. This includes
     keys and values in dicts, and all values in a list or tuple.
 
     :param mixed value: The value to process
