@@ -1,3 +1,8 @@
+"""
+HTTP Request Handlers
+=====================
+
+"""
 import asyncio
 import functools
 import logging
@@ -23,8 +28,17 @@ HTML_ERROR_TEMPLATE = """\
 
 
 class RequestHandler:
+    """
 
+    """
     def __init__(self, application, request, route):
+        """
+
+        :param application:
+        :param request:
+        :param route:
+
+        """
         self.application = application
         self.logger = logging.getLogger(
             '{}.{}'.format(__name__, self.__class__.__name__))
@@ -41,39 +55,77 @@ class RequestHandler:
         return self.application.settings
 
     def initialize(self, **kwargs):
+        """
+
+        :param kwargs:
+
+        """
         self.logger.debug('Initializing')
 
     def prepare(self):
+        """
+
+        """
         self.logger.debug('Preparing %r', self.request)
 
     def on_connection_closed(self):
+        """
+
+        """
         pass
 
     def on_finished(self):
+        """
+
+        """
         pass
 
     @property
     def name(self):
+        """Return the name of the route or the class if the route name is not
+        set.
+
+        :rtype: str
+
+        """
         return self.route.name or self.__class__.__name__
 
     def clear(self):
+        """Clear response content and headers"""
         self.request.response.clear()
 
-    def clear_header(self, key):
-        if key in self.request.response.headers:
-            del self.request.response.headers[key]
+    def clear_header(self, field):
+        """Remove a header field by name.
+
+        :param str field: The header field name
+
+        """
+        if field in self.request.response.headers:
+            del self.request.response.headers[field]
 
     def finish(self, chunk=None):
+        """Complete the request response.
+
+        :param mixed chunk:
+
+        """
         if self.request.finished:
             raise RuntimeError('Request is already finished')
         if chunk:
             self.write(chunk)
 
     def flush(self):
+        """Flush the output buffer"""
         return self.request.response.flush()
 
     @functools.lru_cache(1)
     def get_body_arguments(self):
+        """Parse the request body, parsing the content based upon the
+        ``Content-Type`` header field.
+
+        :rtype: dict
+
+        """
         if not self.request.body:
             return None
         parsed = headers.parse_content_type(
@@ -93,19 +145,38 @@ class RequestHandler:
         return transcoder.from_bytes(self.request.body)
 
     @functools.lru_cache(1)
-    def get_request_language(self, default='en_US'):
+    def get_request_language(self):
+        """Return the language specified in the ``Accept-Language`` header,
+        returning the default of 'en_US'
+
+        :rtype: str
+
+        """
         if 'Accept-Language' not in self.request.headers:
-            return default
+            return self.settings['default-language']
         languages = headers.parse_accept_language(
             self.request.headers['Accept-Language'])
-        return languages[0] if languages else default
+        return languages[0] if languages else self.settings['default-language']
 
     @functools.lru_cache(1)
-    def get_request_encoding(self, default=None):
+    def get_request_encoding(self):
+        """Return the value of the ``Accept-Encoding`` header.
+
+        :rtype: str
+
+        """
         if 'Accept-Encoding' not in self.request.headers:
-            return default
+            return self.settings['default-encoding']
+        encodings = headers.parse_accept_encoding(
+            self.request.headers['Accept-Encoding'])
+        return encodings[0] if encodings else self.settings['default-encoding']
 
     def get_status(self):
+        """Return the currently set status code for the HTTP response.
+
+        :rtype: int
+
+        """
         return self.request.response.status_code
 
     def redirect(self, url, permanent=False, status=None):

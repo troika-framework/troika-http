@@ -1,8 +1,8 @@
 """
 Common Encoding Methods
+=======================
 
 """
-
 
 def to_str(value):
     """Decode a :obj:`bytes` object into a str with UTF-8 encoding.
@@ -17,6 +17,13 @@ def to_str(value):
 
 
 def recursive_to_str(value):
+    """Ensure that any bytes objects are converted to strings. This includes
+    keys and values in dicts, and all values in a list or tuple.
+
+    :param mixed value: The value to process
+    :rtype: mixed
+
+    """
     if isinstance(value, dict):
         return dict((to_str(k), recursive_to_str(v)) for k, v in value.items())
     elif isinstance(value, list):

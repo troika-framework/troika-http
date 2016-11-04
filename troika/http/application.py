@@ -1,3 +1,8 @@
+"""
+HTTP Application
+================
+
+"""
 import asyncio
 import logging
 
@@ -8,7 +13,18 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Application:
+    """The Application is the central coordinator managing the HTTP server,
+    routes, settings, transcoders, and the IOLoop.
+
+    """
     def __init__(self, routes, settings=None, loop=None):
+        """Create a new application
+
+        :param list routes: A list of routes for request dispatching
+        :param dict settings: Application settings
+        :param ascynio.IOLoop loop: Override the current event loop
+
+        """
         self.access_logger = logging.getLogger('troika.access')
         self.loop = loop or asyncio.get_event_loop()
         self.settings = self._set_default_settings(settings or {})
@@ -99,10 +115,12 @@ class Application:
         settings.setdefault('autoreload', False)
         settings.setdefault('compress_response', False)
         settings.setdefault('default_content_type', 'text/html; charset=UTF-8')
+        settings.setdefault('default_encoding', None)
         settings.setdefault('default_handler_class', handlers.DefaultHandler)
         settings.setdefault('default_handler_kwargs', {})
         settings.setdefault('default_handler_name', 'default')
         settings.setdefault('default_handler_suppress_logs', False)
+        settings.setdefault('default_language', 'en-US')
         settings.setdefault('listen_host', 'localhost')
         settings.setdefault('listen_port', 8000)
         settings.setdefault('log_function', self.log_request)

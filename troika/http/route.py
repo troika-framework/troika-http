@@ -1,3 +1,8 @@
+"""
+HTTP Request Routing
+====================
+
+"""
 import collections
 import logging
 import re
@@ -60,8 +65,19 @@ class Route:
         self.suppress_logging = suppress_logging
 
     def __repr__(self):
+        """Return the string representation of the route.
+
+        :rtype: str
+
+        """
         return '{}({}, kwargs={!r}, name={!r})'.format(
             self.__class__.__name__, self.pattern, self.kwargs, self.name)
 
     def match(self, value):
+        """Perform pattern matching on this route.
+
+        :param str value: The HTTP request path
+        :rtype: re.Match
+
+        """
         return self.compiled.match(value)
