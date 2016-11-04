@@ -1,13 +1,11 @@
-"""
-Troika HTTP Exceptions
-======================
+"""Troika HTTP Exceptions"""
 
-"""
 import http
 
 
 class Finish(Exception):
     """Raise to finish processing the HTTP Request"""
+
     pass
 
 
@@ -27,6 +25,7 @@ class HTTPError(Exception):
         * RFC 2774: An HTTP Extension Framework
 
     """
+
     def __init__(self, status_code, phrase=None, description=None):
         """Raise a new HTTP Error. Both ``phrase`` and ``description`` can
         omitted and the default values will be used
