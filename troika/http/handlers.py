@@ -24,14 +24,10 @@ HTML_ERROR_TEMPLATE = """\
 
 class RequestHandler:
 
-    SUPPORTED_METHODS = {
-        'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'
-    }
-
     def __init__(self, application, request, route):
         self.application = application
-        self.logger = logging.getLogger('{}.{}'.format(
-            __name__, self.__class__.__name__))
+        self.logger = logging.getLogger(
+            '{}.{}'.format(__name__, self.__class__.__name__))
         self.request = request
         self.route = route
 
@@ -49,27 +45,6 @@ class RequestHandler:
 
     def prepare(self):
         self.logger.debug('Preparing %r', self.request)
-
-    def delete(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def get(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def head(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def options(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def patch(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def post(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
-
-    def put(self, *args, **kwargs):
-        raise exceptions.HTTPError(405)
 
     def on_connection_closed(self):
         pass
@@ -121,9 +96,9 @@ class RequestHandler:
     def get_request_language(self, default='en_US'):
         if 'Accept-Language' not in self.request.headers:
             return default
-        #languages = headers.parse_accept_language(
-        #    self.request.headers['Accept-Language'])
-        #return languages[0] if languages else default
+        languages = headers.parse_accept_language(
+            self.request.headers['Accept-Language'])
+        return languages[0] if languages else default
 
     @functools.lru_cache(1)
     def get_request_encoding(self, default=None):
@@ -151,6 +126,14 @@ class RequestHandler:
         self.request.response.headers[key] = value
 
     def set_status(self, status_code, reason=None):
+        """Set the response status code and optionally the response reason.
+        If the response reason is not set.
+
+        :param int status_code:
+        :param str reason:
+        :return:
+
+        """
         self.request.response.status_code = status_code
         self.request.response.reason = reason
 
@@ -158,9 +141,8 @@ class RequestHandler:
         if isinstance(chunk, str):
             chunk = chunk.encode('utf-8')
         elif isinstance(chunk, dict):
-            transcoder = self._get_response_transcoder()
-            content_type, chunk = transcoder.to_bytes(chunk)
-            self.set_header('Content-Type', content_type)
+            ctype, chunk = self._get_response_transcoder().to_bytes(chunk)
+            self.set_header('Content-Type', ctype)
         elif not isinstance(chunk, bytes):
             raise ValueError(
                 'write() only accepts dict, str, or bytes objects')
@@ -205,7 +187,7 @@ class RequestHandler:
     def execute(self):
         # Method invoked by :meth:`troika.http.Application.dispatch` to
         # process the request. This is not a normal docstring so it is not
-        # exposed in the user documentaiton
+        # exposed in the user documentation
         self.logger.debug('Executing %r', self.request)
         result = self.initialize(**self.route.init_kwargs)
         if result:
@@ -238,21 +220,12 @@ class RequestHandler:
             yield from result
 
         if not self.request.finished:
-            method = getattr(self, self.request.method.lower())
-            result = method()
+            method = getattr(self, self.request.method.lower(), None)
+            if not method:
+                raise exceptions.HTTPError(405)
+            result = method(*self.route.args, **self.route.kwargs)
             if result:
                 yield from result
-
-    @functools.lru_cache(1)
-    def _get_response_transcoder(self):
-        """Figure out what content type will be used in the response.
-
-        :rtype: troika.http.transcoders.Transcoder
-
-        """
-        content_type = self._get_response_content_type()
-        if content_type:
-            return self.application.transcoders[1].get(content_type)
 
     @functools.lru_cache(1)
     def _get_response_content_type(self):
@@ -267,6 +240,17 @@ class RequestHandler:
             return self.settings['default_content_type']
         else:
             return '/'.join([selected.content_type, selected.content_subtype])
+
+    @functools.lru_cache(1)
+    def _get_response_transcoder(self):
+        """Figure out what content type will be used in the response.
+
+        :rtype: troika.http.transcoders.Transcoder
+
+        """
+        content_type = self._get_response_content_type()
+        if content_type:
+            return self.application.transcoders[1].get(content_type)
 
     def _handle_request_exception(self, error, exc_info):
         if isinstance(error, exceptions.Finish):
