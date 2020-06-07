@@ -3,16 +3,14 @@
 import base64
 import collections
 import json
-from urllib import parse
 import uuid
+from urllib import parse
 
 from ietfparse import headers
-
 try:
     import umsgpack
 except ImportError:  # pragma: nocover
     umsgpack = None
-
 try:
     import yaml
 except ImportError:  # pragma: nocover
@@ -25,7 +23,7 @@ def default():
     """Return default transcoders
 
     The default transcoders to use when creating an instance of
-    :cls:`troika.http.Application`.
+    :class:`troika.http.Application`.
 
     :rtype: list
 
@@ -163,7 +161,7 @@ class FormURLEncoded(Text):
 
     1. Control names and values are escaped. Space characters are replaced by
         ``+``, and then reserved characters are escaped as described in
-        :rfc:`RFC1738`, section 2.2: Non-alphanumeric characters are replaced
+        :rfc:`1738`, section 2.2: Non-alphanumeric characters are replaced
         by ``%HH``, a percent sign and two hexadecimal digits representing the
         ASCII code of the character. Line breaks are represented as
         "CR LF" pairs (i.e., ``%0D%0A``).
@@ -340,6 +338,5 @@ def _normalize(value, base64_encode=True):
     elif isinstance(value, (collections.Sequence, collections.Set)):
         return [_normalize(item, base64_encode) for item in value]
     elif isinstance(value, collections.Mapping):
-        return dict((k, _normalize(v, base64_encode))
-                    for k, v in value.items())
+        return {k: _normalize(v, base64_encode) for k, v in value.items()}
     raise TypeError('{} is not supported'.format(value.__class__.__name__))

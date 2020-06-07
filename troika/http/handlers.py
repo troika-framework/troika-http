@@ -1,14 +1,17 @@
 """HTTP Request Handlers"""
-
-import asyncio
 import functools
+import http
 import logging
 import sys
 import traceback
+import typing
 
 from ietfparse import algorithms, errors, headers
 
-from troika.http import exceptions
+from .application import Application
+from .exceptions import Finish, HTTPError
+from .route import RouteMatch
+from .server import HTTPRequest
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,18 +28,17 @@ HTML_ERROR_TEMPLATE = """\
 
 
 class RequestHandler:
-
     """Respond to HTTP Requests"""
 
-    def __init__(self, application, request, route):
+    def __init__(self,
+                 application: Application,
+                 request: HTTPRequest,
+                 route: RouteMatch):
         """Create a new RequestHandler instance.
 
         :param application: The troika HTTP application
-        :type: troika.http.application.Application
         :param request: The HTTP request the handler is responding to
-        :type: troika.http.server.HTTPRequest
-        :param route: The matched route used to invoke this handler
-        :type: troika.route.Match
+        :param route: The route that was matched for this request
 
         """
         self.application = application
@@ -46,82 +48,62 @@ class RequestHandler:
         self.route = route
 
     @property
-    def settings(self):
-        """An alias for :attr:`troika.http.Application.settings`
-
-        :rtype: dict
-
-        """
+    def settings(self) -> dict:
+        """An alias for :attr:`troika.http.Application.settings`"""
         return self.application.settings
 
-    def initialize(self, **kwargs):
-        """Initialize the RequestHandler
-
-        :param kwargs:
-
-        """
+    async def initialize(self, **kwargs) -> None:
+        """Initialize the RequestHandler"""
         self.logger.debug('Initializing')
 
-    def prepare(self):
-        """
+    async def prepare(self) -> None:
+        """Invoked for the request handler to perform steps prior to processing
+        the request.
 
         """
         self.logger.debug('Preparing %r', self.request)
 
-    def on_connection_closed(self):
+    async def on_connection_closed(self) -> None:
         """Invoked if the connection is closed when not finished"""
-        pass
 
-    def on_finished(self):
+    async def on_finished(self) -> None:
         """Invoked when the Response has been sent"""
-        pass
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the route or the class if the route name is not
         set.
-
-        :rtype: str
 
         """
         return self.route.name or self.__class__.__name__
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear response content and headers"""
         self.request.response.clear()
 
-    def clear_header(self, field):
-        """Remove a header field by name.
-
-        :param str field: The header field name
-
-        """
+    def clear_header(self, field: str) -> None:
+        """Remove a header field by name"""
         if field in self.request.response.headers:
             del self.request.response.headers[field]
 
-    def finish(self, chunk=None):
-        """Complete the request response.
-
-        :param mixed chunk:
-
-        """
+    def finish(self,
+               chunk: typing.Union[str, dict, bytes, None] = None) -> None:
+        """Complete the request response"""
         if self.request.finished:
             raise RuntimeError('Request is already finished')
         if chunk:
             self.write(chunk)
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush the output buffer"""
         return self.request.response.flush()
 
     @functools.lru_cache(1)
-    def get_body_arguments(self):
+    def get_body_arguments(self) -> typing.Optional[dict]:
         """Parse the request body
 
         Use the configured transcoders to parse the content using the
         ``Content-Type`` header field to determine which transcoder to use.
-
-        :rtype: dict
 
         """
         if not self.request.body:
@@ -143,13 +125,11 @@ class RequestHandler:
         return transcoder.from_bytes(self.request.body)
 
     @functools.lru_cache(1)
-    def get_request_language(self):
+    def get_request_language(self) -> str:
         """Return the language specified in the ``Accept-Language`` header.
 
         If it is not specified in the request, the configured default value
         will be returned.
-
-        :rtype: str
 
         """
         if 'Accept-Language' not in self.request.headers:
@@ -159,10 +139,8 @@ class RequestHandler:
         return languages[0] if languages else self.settings['default-language']
 
     @functools.lru_cache(1)
-    def get_request_encoding(self):
+    def get_request_encoding(self) -> str:
         """Return the value of the ``Accept-Encoding`` header.
-
-        :rtype: str
 
         """
         if 'Accept-Encoding' not in self.request.headers:
@@ -171,40 +149,38 @@ class RequestHandler:
             self.request.headers['Accept-Encoding'])
         return encodings[0] if encodings else self.settings['default-encoding']
 
-    def get_status(self):
-        """Return the currently set status code for the HTTP response.
-
-        :rtype: int
-
-        """
+    def get_status(self) -> int:
+        """Return the currently set status code for the HTTP response."""
         return self.request.response.status_code
 
-    def redirect(self, url, permanent=False, status=None):
+    def redirect(self,
+                 url: str,
+                 permanent: bool = False,
+                 status: typing.Optional[int] = None):
         status = status or 301 if permanent else 302
         self.set_status(status)
         self.set_header('Location', url)
         self.finish()
 
-    def require_setting(self, name):
+    def require_setting(self, name: str) -> None:
         """Use to ensure that a specific application setting exists.
 
         If the setting does not exist, the request handler will return a
         ``503`` response to the client and log the error.
 
-        :param str name: The setting name
+        :param name: The setting name
         :raises: troika.exceptions.HTTPError
 
         """
-        if not self.application.get(name):
+        if not self.application.settings.get(name):
             self.logger.critical(
                 'Missing required setting %s for %s', name, self.name)
-            raise exceptions.HTTPError(503)
+            raise HTTPError(503)
 
     def send_error(self, status_code, reason=None, message=None, **kwargs):
-        self.write_error(
-            exceptions.HTTPError(status_code, reason, message), **kwargs)
+        self.write_error(HTTPError(status_code, reason, message), **kwargs)
 
-    def set_header(self, field, value):
+    def set_header(self, field: str, value: str) -> None:
         """Set a HTTP response header field.
 
         :param str field: The response header field name
@@ -213,22 +189,25 @@ class RequestHandler:
         """
         self.request.response.headers[field] = value
 
-    def set_status(self, status_code, phrase=None):
+    def set_status(self,
+                   status_code: int,
+                   phrase: typing.Optional[str] = None) -> None:
         """Set the response status code
 
         If the response reason is not set, the default will be used
 
-        :param int status_code:
-        :param str phrase: Optional response phrase
+        :param status_code:
+        :param phrase: Optional response phrase
 
         """
         self.request.response.status_code = status_code
-        self.request.response.phrase = phrase
+        self.request.response.phrase = phrase \
+            if phrase else http.HTTPStatus(status_code)
 
-    def write(self, chunk):
+    def write(self, chunk: typing.Union[str, dict, bytes]) -> None:
         """Write the HTTP response body content.
 
-        :param mixed chunk: The content to write
+        :param chunk: The content to write
 
         """
         if isinstance(chunk, str):
@@ -241,7 +220,7 @@ class RequestHandler:
                 'write() only accepts dict, str, or bytes objects')
         self.request.response.body += chunk
 
-    def write_error(self, error, **kwargs):
+    def write_error(self, error: HTTPError, **kwargs) -> None:
         """Overwrite to implement custom error pages.
 
         This implementaiton will send a HTML error page if the default
@@ -262,9 +241,7 @@ class RequestHandler:
         stack = []
         if kwargs.get('exc_info'):
             if self.settings['serve_traceback']:
-                stack = [
-                    l for l in traceback.format_exception(*kwargs['exc_info'])
-                ]
+                stack = list(traceback.format_exception(*kwargs['exc_info']))
             del kwargs['exc_info']
 
         content_type = self._get_response_content_type()
@@ -277,17 +254,14 @@ class RequestHandler:
             values['traceback'] = stack
             self.finish(values)
 
-    @asyncio.coroutine
-    def execute(self):
+    async def execute(self):
         # Method invoked by :meth:`troika.http.Application.dispatch` to
         # process the request.
         self.logger.debug('Executing %r', self.request)
-        result = self.initialize(**self.route.init_kwargs)
-        if result:
-            yield from result
+        await self.initialize(**self.route.init_kwargs)
 
         try:
-            yield from self._execute()
+            await self._execute()
         except Exception as error:
             exc_info = sys.exc_info()
             self._handle_request_exception(error, exc_info)
@@ -296,18 +270,17 @@ class RequestHandler:
         if not self.route.suppress_logging:
             self.application.log_request(self)
 
-        result = self.on_finished()
-        if result:
-            yield from result
+        await self.on_finished()
 
-    def request_summary(self):
-        # Invoked by :meth:`troika.http.RequestHandler.execute` to get the
-        # summary information for request logging
+    def request_summary(self) -> str:
+        """Invoked by :meth:`troika.http.RequestHandler.execute` to get the
+        summary information for request logging.
+
+        """
         return '{} {} ({})'.format(self.request.method, self.request.uri,
                                    self.request.remote_ip)
 
-    @asyncio.coroutine
-    def _execute(self):
+    async def _execute(self):
         """Prepare and execute the request
 
         Invoked by :meth:`troika.http.RequestHandler.execute` to execute
@@ -316,17 +289,12 @@ class RequestHandler:
         the HTTP verb of the request.
 
         """
-        result = self.prepare()
-        if result:
-            yield from result
-
+        await self.prepare()
         if not self.request.finished:
             method = getattr(self, self.request.method.lower(), None)
             if not method:
-                raise exceptions.HTTPError(405)
-            result = method(*self.route.args, **self.route.kwargs)
-            if result:
-                yield from result
+                raise HTTPError(405)
+            await method(*self.route.args, **self.route.kwargs)
 
     @functools.lru_cache(1)
     def _get_response_content_type(self):
@@ -359,19 +327,18 @@ class RequestHandler:
             return self.application.transcoders[1].get(content_type)
 
     def _handle_request_exception(self, error, exc_info):
-        if isinstance(error, exceptions.Finish):
+        if isinstance(error, Finish):
             if not self.request.finished:
                 self.finish(*error.args)
-        elif isinstance(error, exceptions.HTTPError):
+        elif isinstance(error, HTTPError):
             self.write_error(error=error)
         else:
             LOGGER.exception(
                 'Uncaught exception: %s', error, exc_info=exc_info)
-            self.write_error(exceptions.HTTPError(500), exc_info=exc_info)
+            self.write_error(HTTPError(500), exc_info=exc_info)
 
 
 class DefaultHandler(RequestHandler):
-
     """Default HTTP Response
 
     Implements a RequestHandler that will raise 404. This should always
@@ -379,13 +346,11 @@ class DefaultHandler(RequestHandler):
     automatically.
 
     """
-
-    def prepare(self):
-        raise exceptions.HTTPError(404)
+    async def prepare(self):
+        raise HTTPError(404)
 
 
 class RedirectHandler(RequestHandler):
-
     """Redirect HTTP Requests
 
     Implements a RequestHandler that can be included in the application
@@ -407,10 +372,13 @@ class RedirectHandler(RequestHandler):
         application.run()
 
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._url = typing.Optional[str] = None
 
-    def initialize(self, url, permanent=False):
+    async def initialize(self, url: str, permanent: bool = False):
         self._url = url
         self._permanent = permanent
 
-    def get(self):
+    async def get(self):
         self.redirect(self._url, permanent=self._permanent)

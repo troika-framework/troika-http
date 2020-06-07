@@ -27,11 +27,13 @@ class RequestHandler(http.RequestHandler):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    application = http.Application([
-        ('/', RequestHandler),
-        ('/google', http.RedirectHandler, {'url': 'https://www.google.com'})
-    ], {
-        'serve_traceback': True,
-        'default_content_type': 'application/json'
-    })
+    application = http.Application(
+        [
+            ('/', RequestHandler),
+            ('/google', http.RedirectHandler,
+             {'url': 'https://www.google.com'})
+        ], {
+            'serve_traceback': True,
+            'default_content_type': 'application/json'
+        })
     application.run()

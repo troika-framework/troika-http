@@ -5,11 +5,21 @@ HTTP Application
 """
 import asyncio
 import logging
+import typing
 
 from troika.http import \
-    exceptions, handlers, server, route, transcoders, version
+    exceptions, handlers, route, server, transcoders, version
 
 LOGGER = logging.getLogger(__name__)
+
+
+Routes = typing.List[typing.Union[
+    route.Route,
+    typing.Tuple[str, handlers.RequestHandler],
+    typing.Tuple[str, handlers.RequestHandler, route.KWArgs],
+    typing.Tuple[str, handlers.RequestHandler, route.KWArgs, str],
+    typing.Tuple[str, handlers.RequestHandler, route.KWArgs, str, bool]]]
+Settings = typing.Dict[str, typing.Union[bool, dict, int, list, str]]
 
 
 class Application:
@@ -17,12 +27,15 @@ class Application:
     routes, settings, transcoders, and the IOLoop.
 
     """
-    def __init__(self, routes, settings=None, loop=None):
+    def __init__(self,
+                 routes: Routes,
+                 settings: typing.Optional[Settings] = None,
+                 loop: typing.Optional[asyncio.BaseEventLoop] = None):
         """Create a new application
 
-        :param list routes: A list of routes for request dispatching
-        :param dict settings: Application settings
-        :param ascynio.IOLoop loop: Override the current event loop
+        :param routes: A list of routes for request dispatching
+        :param settings: Application settings
+        :param loop: Override the current event loop
 
         """
         self.access_logger = logging.getLogger('troika.access')
@@ -46,7 +59,7 @@ class Application:
         """
         self.transcoders[mime_type or transcoder.MIME_TYPE] = transcoder
 
-    def dispatch(self, request):
+    def dispatch(self, request: server.HTTPRequest) -> None:
         match = route.match(self.routes, request)
         try:
             return match.handler(self, request, match).execute()

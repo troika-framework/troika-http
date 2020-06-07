@@ -24,10 +24,10 @@ def recursive_to_str(value, encoding):
 
     """
     if isinstance(value, dict):
-        return dict((to_str(k, encoding), recursive_to_str(v, encoding))
-                    for k, v in value.items())
+        return {to_str(k, encoding): recursive_to_str(v, encoding)
+                for k, v in value.items()}
     elif isinstance(value, list):
-        return list(recursive_to_str(v, encoding) for v in value)
+        return [recursive_to_str(v, encoding) for v in value]
     elif isinstance(value, tuple):
         return tuple(recursive_to_str(v, encoding) for v in value)
     elif isinstance(value, bytes):

@@ -5,6 +5,7 @@ import os
 import struct
 import unittest
 import uuid
+
 import yaml
 
 from troika.http import transcoders
@@ -32,27 +33,27 @@ class Context(object):
 def pack_string(obj):
     """Optimally pack a string according to msgpack format"""
     payload = str(obj).encode('ASCII')
-    l = len(payload)
-    if l < (2 ** 5):
-        prefix = struct.pack('B', 0b10100000 | l)
-    elif l < (2 ** 8):
-        prefix = struct.pack('BB', 0xD9, l)
-    elif l < (2 ** 16):
-        prefix = struct.pack('>BH', 0xDA, l)
+    length = len(payload)
+    if length < (2 ** 5):
+        prefix = struct.pack('B', 0b10100000 | length)
+    elif length < (2 ** 8):
+        prefix = struct.pack('BB', 0xD9, length)
+    elif length < (2 ** 16):
+        prefix = struct.pack('>BH', 0xDA, length)
     else:
-        prefix = struct.pack('>BI', 0xDB, l)
+        prefix = struct.pack('>BI', 0xDB, length)
     return prefix + payload
 
 
 def pack_bytes(payload):
     """Optimally pack a byte string according to msgpack format"""
-    l = len(payload)
-    if l < (2 ** 8):
-        prefix = struct.pack('BB', 0xC4, l)
-    elif l < (2 ** 16):
-        prefix = struct.pack('>BH', 0xC5, l)
+    length = len(payload)
+    if length < (2 ** 8):
+        prefix = struct.pack('BB', 0xC4, length)
+    elif length < (2 ** 16):
+        prefix = struct.pack('>BH', 0xC5, length)
     else:
-        prefix = struct.pack('>BI', 0xC6, l)
+        prefix = struct.pack('>BI', 0xC6, length)
     return prefix + payload
 
 
@@ -69,7 +70,6 @@ class DefaultTranscoderTests(unittest.TestCase):
             ('text/x-yaml', transcoders.YAML),
         ]
         parsed, values = transcoders.default()
-        print(values)
         for mime_type, transcoder in values.items():
             self.assertIn((mime_type, transcoder.__class__), expectation)
 
@@ -220,12 +220,12 @@ class MessagePackTests(unittest.TestCase):
                          b'\xD3\x80\x00\x00\x00\x00\x00\x00\x00')
 
     def test_that_lists_are_treated_as_arrays(self):
-        dumped = self.transcoder._marshall(list())
+        dumped = self.transcoder._marshall([])
         self.assertEqual(self.transcoder._unmarshall(dumped), [])
         self.assertEqual(dumped, b'\x90')
 
     def test_that_tuples_are_treated_as_arrays(self):
-        dumped = self.transcoder._marshall(tuple())
+        dumped = self.transcoder._marshall(tuple())  # noqa: C408
         self.assertEqual(self.transcoder._unmarshall(dumped), [])
         self.assertEqual(dumped, b'\x90')
 

@@ -1,17 +1,17 @@
 """HTTP Server and Request/Response Definitions"""
-
 import asyncio
-from http import cookies
 import datetime
 import functools
 import ipaddress
 import logging
 import numbers
-from urllib import parse
 import re
-from http.client import responses
 import time
+import typing
 from email import utils
+from http import cookies
+from http.client import responses
+from urllib import parse
 
 import httptools
 
@@ -23,32 +23,32 @@ _INVALID_HEADER_CHAR_RE = re.compile(r'[\x00-\x1f]')
 
 class HTTPRequest:
 
-    def __init__(self, transport):
+    def __init__(self, transport: asyncio.Transport):
         self._finish_time = None
         self._start_time = time.time()
-
         self.transport = transport
-
         self.remote_ip = transport.get_extra_info('peername')[0]
-        self.version = None
-        self.method = None
-        self.uri = None
-        self.protocol = 'http'
-        self.host = None
-        self.query = None
-        self.headers = {}
-        self.body = None
+        self.version: typing.Optional[str] = None
+        self.method: typing.Optional[str] = None
+        self.uri: typing.Optional[str] = None
+        self.protocol: str = 'http'
+        self.host: typing.Optional[str] = None
+        self.query: typing.Optional[str] = None
+        self.headers: typing.Dict[str, str] = {}
+        self.body: typing.Optional[bytes] = None
+        self.path: typing.Optional[str] = None
 
-        self.arguments = None
-        self.query_arguments = None
-        self.body_arguments = None
-        self.cookies = None
-        self.response = None
+        self.arguments: typing.Optional[typing.List[str]] = None
+        self.query_arguments: typing.Optional[typing.Dict[str, str]] = None
+        self.body_arguments: typing.Optional[typing.Dict[str, str]] = None
+        self.cookies: typing.Optional[cookies.BaseCookie] = None
+        self.response: typing.Optional[HTTPResponse] = None
 
-    def __repr__(self):
-        parts = {'protocol', 'host', 'method', 'uri', 'version', 'remote_ip'}
+    def __repr__(self) -> str:
         args = ', '.join(
-            ['{!s}={!r}'.format(k, getattr(self, k)) for k in parts])
+            ['{!s}={!r}'.format(k, getattr(self, k))
+             for k in {'protocol', 'host', 'method', 'uri', 'version',
+                       'remote_ip'}])
         return '{}({}, headers={!r})'.format(self.__class__.__name__, args,
                                              self.headers)
 
